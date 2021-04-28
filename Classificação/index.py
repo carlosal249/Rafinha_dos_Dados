@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
 
 #df significa data frame
 df = pd.read_csv('MLBE_base_aula_1_classificacao.csv')
@@ -162,3 +164,34 @@ for cat_num in transformar_categorias:
     X2_vl.loc[:,'product_category_name_mode'] = X2_vl.product_category_name_mode.replace(cat_num, -1)
 
 #print(X2_tr.product_category_name_mode.value_counts())
+
+#Criar modelo RandomForest
+params = {
+    'max_depth': [4, 6, 8, 10],
+    'class_weight': [None, 'balanced'],
+    'criterion': ['gini', 'entropy'],
+}
+
+grid = GridSearchCV(
+    RandomForestClassifier(n_estimators=500, random_state=61658, n_jobs=3),
+    params,
+    cv=10,
+    scoring='roc_auc',
+    verbose=10,
+    n_jobs=1,
+)
+
+grid.fit(X2_tr, y_tr)
+
+grid.best_params_ #verifica o melhor parâmetro 
+grid.best_score_ #verifica o melhor score
+
+#Verificar se o melhor modelo deu uma resposta melhor que os outros 
+means = grid.cv_results_['mean>_test_score']
+stds = grid.cv_results_['std_test_score']
+for mean, std, params in zip(means, stds, grid.cv_results_['params']):
+    #print("%0.3f (+/- %0.03f) for %r" %(mean, std * 2, params))
+
+#Verificar o modelo com o teste
+preds = grid.predict_proba(X2_ts)
+print(preds)
