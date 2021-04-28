@@ -29,3 +29,26 @@ Assim, para garantir que o modelo não decorou, é interessante que deixemos os 
 - É importante que esses meses sejam os últimos, pois é sempre mais difícil prever o futuro do que o passado
 
 Para esse exercício, vamos considerar somente os produtos que tem ao menos 10 vendas/avaliaçãos nos meses de treino
+
+No geral, a satisfação do cliente sobre os nossos produtos é boa.
+
+Definição da variável resposta
+- Assim, para o modelo de classificação, que busca encontrar um padrão que separe 2 classes, iremos considerar:
+- Produtos bem avaliados (score médio >=4.5)
+- Produtos neutros ou mau avaliados (score < 4.5)
+
+A ideia é encontrar quais são as características que diferenciam um produto incrível do produto mediano.
+
+Validação Out-Of-Sample
+- Mesmo tendo separado já um conjunto de validação out-of-time, é interessante saber como o modelo performa nos próprios meses de treinamento.
+- Então, separamos algumas amostras aleatoriamente para ficarem separadas, como uma segunda forma de validação. 
+
+Encoding de variáveis categóricas
+- Uma das colunas da nossa tabela, a product_category_mode, possui valores categóricos, isto é, ela não é composta de valores numéricos, mas sim de categorias conceitualmente distintas. 
+- Modelos em python não sabem trabalhar com categorias, apenas com números, então precisamos transformar essa coluna de alguma forma. 
+
+- Label encoding ou Ordinal encoding: Cada categoria é convertida em um número.  
+
+- One-hot encoding: Para cada categoria, será criada uma nova coluna. 
+pd.get_dummies(X_tr)
+
