@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import roc_auc_score
 
 #df significa data frame
 df = pd.read_csv('MLBE_base_aula_1_classificacao.csv')
@@ -187,11 +188,91 @@ grid.best_params_ #verifica o melhor parâmetro
 grid.best_score_ #verifica o melhor score
 
 #Verificar se o melhor modelo deu uma resposta melhor que os outros 
-means = grid.cv_results_['mean>_test_score']
+means = grid.cv_results_['mean_test_score']
 stds = grid.cv_results_['std_test_score']
 for mean, std, params in zip(means, stds, grid.cv_results_['params']):
-    #print("%0.3f (+/- %0.03f) for %r" %(mean, std * 2, params))
+    print("%0.3f (+/- %0.03f) for %r" %(mean, std * 2, params))
 
 #Verificar o modelo com o teste
-preds = grid.predict_proba(X2_ts)
-print(preds)
+preds = grid.predict_proba(X2_ts)[:,1]
+
+#AUC
+roc_auc_score(y_ts, preds) #AUC SCORE no teste Out-of-Sample
+roc_auc_score(y_vl,  grid.predict_proba(X2_vl)[:,1]) #AUC SCORE na validação Out-of-Time
+
+#Checar a quantidade de árvores da randomForest
+aucs = []
+n_trees = [10,50,100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000]
+for n_estimators in n_trees:
+    print(n_estimators)
+    rf = RandomForestClassifier(n_estimators=n_estimators, random_state=61658, n_jobs=3, **grid.best_params_)
+
+    rf.fit(X2_tr, y_tr)
+    preds = rf.predict_proba(X2_vl)[:,1]
+    auc = roc_auc_score(y_vl, preds)
+
+    aucs.append(auc)
+
+fname2 = './arvores.pdf'
+plt.figure(figsize=(15,5))
+plt.plot(n_trees, aucs, '.-')
+plt.grid()
+
+plt.savefig(fname2)
+
+#Salvar a predição do modelo na planilha de teste
+X2_ts.loc[:,'pred'] = rf.predict_proba(X2_ts)[:,1]
+
+#Verificar como o modelo está funcionando nas diferentes safras de público
+scores = []
+ano_tri = []
+for ano in np.sort(X2_ts.reset_index().ano.unique()):
+    for tri in np.sort(X2_ts.reset_index().trimestre.unique()):
+        print(ano,tri)
+        y_ts_loc = y_ts.reset_index()
+        y_ts_loc = y_ts_loc.loc[(y_ts_loc.ano==ano) & (y_ts_loc.trimestre==tri)]
+
+        X2_ts_loc = X2_ts.reset_index()
+        X2_ts_loc = X2_ts_loc.loc[(X2_ts_loc.ano==ano) & (X2_ts_loc.trimestre==tri)]
+
+        if X2_ts_loc.shape[0]==0:
+            continue
+
+        auc = roc_auc_score(y_ts_loc.target, X2_ts_loc.pred)
+
+        scores.append(auc)
+        ano_tri.append(f'{ano}-{tri}')
+
+fname3 = './safras.pdf'
+plt.figure(figsize=(15,5))
+plt.plot(scores)
+plt.xticks(ticks=range(len(scores)), labels=ano_tri, fontsize=14)
+plt.grid()
+
+plt.savefig(fname3)
+
+#Importacia de variáveis
+rf.feature_importances_ #retorna o peso de cada coluna da tabela na classificação do produto
+
+imps = rf.feature_importances_
+cols = X2_tr.columns
+order = np.argsort(imps)[::-1]
+
+for col, imp in zip(cols[order], imps[order]):
+    print(f'{col:50s}{imp:.3f}{"*"*int(100*imp)}')
+
+X_interpretacao = X2_ts[['freight_value_min','pred']].copy()
+X_interpretacao.loc[:,'freight_bin'] = pd.qcut(X_interpretacao.freight_value_min, 10, duplicates='drop')
+print(X_interpretacao)
+
+print(X_interpretacao.freight_bin.value_counts(normalize=True))
+
+plt.figure(figsize=(15,5))
+ax = plt.subplot(1,1,1)
+X_interpretacao.groupby('freight_bin').pred.mean().plot(rot=45, ax=ax, lw=5.)
+X_interpretacao.groupby('freight_bin').pred.quantile(q=0.10).plot(rot=45, ax=ax)
+X_interpretacao.groupby('freight_bin').pred.quantile(q=0.90).plot(rot=45, ax=ax)
+
+plt.grid()
+plt.xticks(fontsize=14)
+
